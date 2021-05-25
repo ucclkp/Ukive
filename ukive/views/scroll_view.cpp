@@ -10,6 +10,7 @@
 
 #include "utils/log.h"
 
+#include "ukive/app/application.h"
 #include "ukive/event/input_consts.h"
 #include "ukive/event/input_event.h"
 #include "ukive/window/window.h"
@@ -24,10 +25,14 @@ namespace ukive {
         : LayoutView(c, attrs),
           mouse_x_cache_(0),
           mouse_y_cache_(0),
-          saved_pointer_type_(InputEvent::PT_NONE),
-          scroller_(c)
+          saved_pointer_type_(InputEvent::PT_NONE)
     {
         setTouchCapturable(true);
+        Application::getVSyncProvider()->addCallback(this);
+    }
+
+    ScrollView::~ScrollView() {
+        Application::getVSyncProvider()->removeCallback(this);
     }
 
     bool ScrollView::canScroll() const {
@@ -259,18 +264,17 @@ namespace ukive {
 
             if (e->getWheelGranularity() == InputEvent::WG_HIGH_PRECISE) {
                 saved_pointer_type_ = InputEvent::PT_NONE;
+                scroller_.finish();
                 scroller_.bezier(
-                    0, getContext().dp2px(10 * wheel),
-                    Scroller::Continuity::Time, true);
+                    0, getContext().dp2px(10 * wheel), true);
             } else {
                 scroller_.bezier(
-                    0, getContext().dp2px(6 * wheel),
-                    Scroller::Continuity::VelocityAndTime, false);
+                    0, getContext().dp2px(6 * wheel), false);
             }
 
             /*DLOG(Log::INFO) << "onInputEvent## isWheel:" << e->isWheel()
                 << " wheel:" << wheel;*/
-            requestDraw();
+            Application::getVSyncProvider()->requestVSync();
             break;
         }
 
@@ -294,9 +298,8 @@ namespace ukive {
 
             //DLOG(Log::INFO) << "EVT_UP | vy=" << vy;
 
-            scroller_.bezier(
-                0, vy, Scroller::Continuity::VelocityAndTime, true);
-            requestDraw();
+            scroller_.bezier(0, vy, true);
+            Application::getVSyncProvider()->requestVSync();
             break;
         }
 
@@ -369,7 +372,13 @@ namespace ukive {
     }
 
     void ScrollView::onPreDraw() {
-        if (scroller_.compute()) {
+    }
+
+    void ScrollView::onVSync(
+        uint64_t start_time, uint32_t display_freq, uint32_t real_interval)
+    {
+        //DLOG(Log::INFO) << "********** onVSync: " << start_time;
+        if (scroller_.compute(start_time, display_freq)) {
             auto dy = scroller_.getDelta();
 
             /*DLOG(Log::INFO) << "onPreDraw: "
@@ -380,6 +389,7 @@ namespace ukive {
             }
             requestDraw();
         }
+        Application::getVSyncProvider()->requestVSync();
     }
 
 }

@@ -27,8 +27,7 @@ namespace ukive {
         : ListView(c, {}) {}
 
     ListView::ListView(Context c, AttrsRef attrs)
-        : LayoutView(c, attrs),
-          scroller_(c)
+        : LayoutView(c, attrs)
     {
         scroll_bar_ = std::make_unique<OverlayScrollBar>();
         scroll_bar_->registerScrollHandler(std::bind(&ListView::onScrollBarChanged, this, std::placeholders::_1));
@@ -150,13 +149,12 @@ namespace ukive {
 
             result = true;
             if (e->getWheelGranularity() == InputEvent::WG_HIGH_PRECISE) {
+                scroller_.finish();
                 scroller_.bezier(
-                    0, getContext().dp2px(10 * wheel),
-                    Scroller::Continuity::Time, true);
+                    0, getContext().dp2px(10 * wheel), true);
             } else {
                 scroller_.bezier(
-                    0, getContext().dp2px(6 * wheel),
-                    Scroller::Continuity::VelocityAndTime, false);
+                    0, getContext().dp2px(6 * wheel), false);
             }
             requestDraw();
             break;
@@ -206,8 +204,7 @@ namespace ukive {
             /*DLOG(Log::INFO) << "EVT_UP | vx=" << velocity_calculator_.getVelocityX()
                 << " vy=" << velocity_calculator_.getVelocityY();*/
 
-            scroller_.bezier(
-                0, vy, Scroller::Continuity::VelocityAndTime, true);
+            scroller_.bezier(0, vy, true);
             requestDraw();
             break;
         }
@@ -246,7 +243,7 @@ namespace ukive {
     }
 
     void ListView::onPreDraw() {
-        if (scroller_.compute()) {
+        if (scroller_.compute(0, 0)) {
             auto dy = scroller_.getDelta();
 
             if (dy != 0 && processVerticalScroll(dy) == 0) {
